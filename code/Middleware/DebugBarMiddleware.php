@@ -3,6 +3,7 @@
 namespace LeKoala\DebugBar\Middleware;
 
 use LeKoala\DebugBar\DebugBar;
+use LeKoala\DebugBar\Extension\ControllerExtension;
 use SilverStripe\Control\Middleware\HTTPMiddleware;
 use SilverStripe\Control\Director;
 use SilverStripe\Control\HTTPRequest;
@@ -85,6 +86,20 @@ class DebugBarMiddleware implements HTTPMiddleware
     {
         $debugbar = DebugBar::getDebugBar();
         if (!$debugbar) {
+            return;
+        }
+
+        // Should not alter xml or json, only html
+        $contentType = $response->getHeader('Content-Type');
+        if (!str_contains($contentType, 'text/html')) {
+            // We need to strip <link> and <script> tags added to the body
+            // Calling DebugBar::excludeRequirements(); won't work since the response is already generated
+            $body = (string)$response->getBody();
+            if (str_contains($body, '/debugbar/')) {
+                $regex = '/^[ \t]*<(?:link|script)[^>]*?debugbar[^>]*?>(?:.*?<\/script>)?.*(?:\r?\n)?/mi';
+                $cleanedBody = preg_replace($regex, '', $body);
+                $response->setBody($cleanedBody);
+            }
             return;
         }
 

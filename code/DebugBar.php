@@ -327,17 +327,61 @@ class DebugBar
      */
     public static function includeRequirements()
     {
-        $debugbar = self::getDebugBar();
-
-        if (!$debugbar) {
-            return false;
-        }
-
         // Already called
         if (self::$renderer) {
             return false;
         }
 
+        $renderer = self::getConfiguredRenderer();
+        if (!$renderer) {
+            return false;
+        }
+
+        foreach ($renderer->getAssets('css') as $cssFile) {
+            Requirements::css(self::replaceAssetPath($cssFile));
+        }
+
+        foreach ($renderer->getAssets('js') as $jsFile) {
+            Requirements::javascript(self::replaceAssetPath($jsFile), [
+                'type' => 'application/javascript'
+            ]);
+        }
+
+        // Store instance to avoid calling this multiple times
+        self::$renderer = $renderer;
+
+        return true;
+    }
+
+    /**
+     * @return void
+     */
+    public static function excludeRequirements()
+    {
+        $renderer = self::getConfiguredRenderer();
+        if (!$renderer) {
+            return;
+        }
+        foreach ($renderer->getAssets('css') as $cssFile) {
+            Requirements::block(self::replaceAssetPath($cssFile));
+        }
+
+        foreach ($renderer->getAssets('js') as $jsFile) {
+            Requirements::block(self::replaceAssetPath($jsFile), [
+                'type' => 'application/javascript'
+            ]);
+        }
+    }
+
+    /**
+     * @return \DebugBar\JavascriptRenderer|null
+     */
+    protected static function getConfiguredRenderer()
+    {
+        $debugbar = self::getDebugBar();
+        if (!$debugbar) {
+            return null;
+        }
         $renderer = $debugbar->getJavascriptRenderer();
 
         // We don't need the true path since we are going to use Requirements API that appends the BASE_PATH
@@ -345,7 +389,27 @@ class DebugBar
         $renderer->setBasePath($assetsResource->getRelativePath());
         $renderer->setBaseUrl(Director::makeRelative($assetsResource->getURL()));
 
-        $includeJquery = self::config()->get('include_jquery');
+        $includeJquery = self::shouldIncludeJQuery();
+
+        if ($includeJquery) {
+            $renderer->setEnableJqueryNoConflict(true);
+        } else {
+            $renderer->disableVendor('jquery');
+            $renderer->setEnableJqueryNoConflict(false);
+        }
+
+        if (DebugBar::config()->get('enable_storage')) {
+            $renderer->setOpenHandlerUrl('__debugbar');
+        }
+        return $renderer;
+    }
+
+    /**
+     * @return bool
+     */
+    protected static function shouldIncludeJQuery()
+    {
+        $includeJquery = self::config()->get('include_jquery') ?? true;
         // In CMS, jQuery is already included
         if (self::isAdminController()) {
             $includeJquery = false;
@@ -359,31 +423,7 @@ class DebugBar
                 break;
             }
         }
-
-        if ($includeJquery) {
-            $renderer->setEnableJqueryNoConflict(true);
-        } else {
-            $renderer->disableVendor('jquery');
-            $renderer->setEnableJqueryNoConflict(false);
-        }
-
-        if (DebugBar::config()->get('enable_storage')) {
-            $renderer->setOpenHandlerUrl('__debugbar');
-        }
-
-        foreach ($renderer->getAssets('css') as $cssFile) {
-            Requirements::css(self::replaceAssetPath($cssFile));
-        }
-
-        foreach ($renderer->getAssets('js') as $jsFile) {
-            Requirements::javascript(self::replaceAssetPath($jsFile), [
-                'type' => 'application/javascript'
-            ]);
-        }
-
-        self::$renderer = $renderer;
-
-        return true;
+        return $includeJquery;
     }
 
     /**
