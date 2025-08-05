@@ -20,7 +20,7 @@
         "silverstripe/framework": "^6",
         "php-debugbar/php-debugbar": "^2",
         "doctrine/sql-formatter": "^1.5",
-        "tractorcow/silverstripe-proxy-db": "dev-pulls/cms6-support"
+        "tractorcow/silverstripe-proxy-db": "dev-master"
     },
     "require-dev": {
         "silverstripe/siteconfig": "^6",
